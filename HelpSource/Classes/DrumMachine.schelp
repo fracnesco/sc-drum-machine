@@ -1,0 +1,57 @@
+TITLE:: DrumMachine
+summary:: fifteen drum voices with presets, for SuperDirt and Tidal or played on their own
+categories:: Libraries>DrumMachine
+related:: Classes/SynthVoice, Classes/SynthVoiceWindow
+
+DESCRIPTION::
+sc-drum-machine is fifteen drum voices, each a link::Classes/SynthVoice:: (sc-synth-kit): a class with its SynthDef, its
+parameters and ten presets. In SuperDirt and Tidal they keep the names they had in SuperDirtGUI - code::sdgkick:: ...
+code::sdgslam:: - and sound exactly as they did there; SuperDirtGUI's code::synths/:: files hand them to SuperDirt. On their
+own they play as plain synths.
+
+table::
+## strong::class:: || strong::Tidal:: || strong::what it is::
+## DMKick || sdgkick || a kick: a sine that drops onto its pitch and rings, 808 to 909
+## DMSnare || sdgsnare || two tuned shells and a burst of noise, 808 to 909
+## DMClap || sdgclap || noise through a band pass, struck as a few bursts
+## DMHat || sdghat || the 808's six squares or noise, closed to open
+## DMTom || sdgtom || a tuned skin that starts sharp and settles
+## DMRim || sdgrim || rimshot, claves, woodblock: short pinged filters
+## DMCowbell || sdgcowbell || the 808's two squares, agogo and bell
+## DMCymbal || sdgcymbal || a wash of six squares under an FM bell
+## DMFMDrum || sdgfmdrum || a whole kit from one FM voice, the Elektron way
+## DMModal || sdgmodal || a struck object: ten resonant modes, skin to plate
+## DMPing || sdgping || pinged resonant filters: blips, droplets, ticks
+## DMChaos || sdgchaos || chaotic noise percussion: crackle, logistic map, gendy
+## DMRatchet || sdgratchet || a roll in one event
+## DMPlastic || sdgplastic || hyper-real material hits: bubbles, latex, squeaks
+## DMSlam || sdgslam || a hyper-real kick: a driven dive, a clang, a gated burst
+::
+
+On their own, every hit is as loud as SuperDirt plays it at gain 1; code::amp:: 1 is that level, code::pan:: goes 0 to 1.
+code::note:: tunes a voice in semitones from its own pitch. A hit lasts as long as the drum rings and frees itself.
+
+code::
+DrumMachine.add(s);
+DMKick.play((n: 1));
+DMHat.play((n: 2, pan: 0.3));
+DMSnare.gui;      // its window: display, macros, morph, vary, presets as pads (needs sc-fx-kit)
+::
+
+code::
+Pbind(\instrument, DMHat.soloName, \dur, 0.25, \sdgdecay, Pseq([0.05, 0.05, 0.4], inf)).play;
+::
+
+Each voice's parameters, with their ranges and what they do, are code::DMKick.params::; its presets code::DMKick.presetNames::.
+
+CLASSMETHODS::
+
+METHOD:: voices
+The fifteen voice classes.
+
+METHOD:: names
+Their Tidal names.
+
+METHOD:: add
+Every voice's solo def, synced if a server is given.
+ARGUMENT:: server

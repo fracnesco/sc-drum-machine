@@ -1,0 +1,12 @@
+.DS_Store
+
+# local working notes, not for the repository
+ECOSYSTEM.md
+CLAUDE.md
+
+# markdown stays local, all but the README
+*.md
+!/README.md
+
+# UI snapshots made while working on the windows
+ui-shots/

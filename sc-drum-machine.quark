@@ -1,0 +1,11 @@
+(
+	name: "DrumMachine",
+	summary: "fifteen drum voices - 808 and 909 kick, snare, clap, hat, tom, rim, cowbell, cymbal, FM drum, modal, ping, chaos, ratchet, plastic, slam - each with presets, for SuperDirt and Tidal or played on their own",
+	version: "0.1.0",
+	author: "Francesco Corvi",
+	url: "https://github.com/fracnesco/sc-drum-machine.git",
+	license: "MIT",
+	copyright: "Copyright (c) 2026 Francesco Corvi",
+	schelp: "HelpSource",
+	dependencies: ["https://github.com/fracnesco/sc-synth-kit.git"]
+)
