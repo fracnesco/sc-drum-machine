@@ -1,0 +1,90 @@
+// DMRatchet - a roll in one event: sdgcount clicks spread over sdglen seconds, evenly or like a bouncing ball, each one pinging a resonant filter whose pitch walks from click to click.
+// A voice of sc-drum-machine (SynthVoice, sc-synth-kit). SuperDirt and Tidal call it sdgratchet;
+// on its own it plays as DMRatchet.play, or Pbind(\instrument, DMRatchet.soloName, ...).
+// Converted from SuperDirtGUI's synths/sdgratchet.scd: the SynthDef function is that file's, word
+// for word, its last line handing the signal to output instead of DirtPan.
+
+DMRatchet : SynthVoice {
+	*voiceName { ^\sdgratchet }
+	*isDrum { ^true }
+
+	*description {
+		^"a roll in one event: sdgcount clicks spread over sdglen seconds, evenly or like a bouncing ball, each one pinging a resonant filter whose pitch walks from click to click."
+	}
+
+	*params {
+		^[
+			(name: \sdgcount, range: "1 to 32", text: "clicks in the roll"),
+			(name: \sdglen, range: "0.01 to 2 s", text: "from the first click to the last"),
+			(name: \sdgcurve, range: "-1 to 1", text: "0 even, above 0 faster and quieter (a bouncing ball), below 0 slowing"),
+			(name: \sdgfreq, range: "60 to 12000 Hz", text: "the filter's pitch at the first click, at note 0"),
+			(name: \sdgwalk, range: "-48 to 48 semitones", text: "how far the pitch walks over the roll"),
+			(name: \sdgcolor, range: "0 to 1", text: "each click's pitch scattered at random, up to an octave"),
+			(name: \sdgdecay, range: "0.002 to 0.5 s", text: "how long the filter rings after each click"),
+			(name: \sdgtone, range: "0 to 1", text: "0 a clean ping, 1 a noisy tick on every click"),
+			(name: \sdgbits, range: "0 to 1", text: "bit and sample-rate crush, 0 clean"),
+			(name: \sdgspread, range: "0 to 1", text: "clicks thrown left and right in turn"),
+			(name: \sdglevel, range: "-36 to 6 dB", text: "its level, 0 as measured")
+		]
+	}
+
+	*presets {
+		^[
+			(presetName: "bounce", sdgcount: 12, sdglen: 0.5, sdgcurve: 0.8, sdgfreq: 1400, sdgwalk: 7, sdgdecay: 0.035, sdgtone: 0.3),	// 0 bounce
+			(presetName: "ratchet", sdgcount: 6, sdglen: 0.12, sdgcurve: 0, sdgfreq: 900, sdgwalk: 0, sdgdecay: 0.03, sdgtone: 0.5),	// 1 ratchet
+			(presetName: "slowdown", sdgcount: 10, sdglen: 0.9, sdgcurve: -0.7, sdgfreq: 2600, sdgwalk: -12, sdgdecay: 0.05, sdgtone: 0.2, sdgspread: 0.6),	// 2 slowdown
+			(presetName: "zipper", sdgcount: 32, sdglen: 0.45, sdgcurve: 0.5, sdgfreq: 1800, sdgwalk: 24, sdgdecay: 0.012, sdgtone: 0.6),	// 3 zipper
+			(presetName: "crushed", sdgcount: 5, sdglen: 0.2, sdgcurve: 0.3, sdgfreq: 420, sdgwalk: -5, sdgdecay: 0.06, sdgtone: 0.4, sdgbits: 0.75),	// 4 crushed
+			(presetName: "ping pong", sdgcount: 14, sdglen: 1.2, sdgcurve: 0.9, sdgfreq: 2200, sdgwalk: 0, sdgcolor: 0.05, sdgdecay: 0.02, sdgtone: 0.4),	// 5 ping pong
+			(presetName: "machine gun", sdgcount: 12, sdglen: 0.4, sdgcurve: 0, sdgfreq: 700, sdgwalk: 0, sdgcolor: 0.2, sdgdecay: 0.02, sdgtone: 0.7, sdgbits: 0.3),	// 6 machine gun
+			(presetName: "tape stop", sdgcount: 24, sdglen: 1, sdgcurve: -0.8, sdgfreq: 1200, sdgwalk: -36, sdgdecay: 0.03, sdgtone: 0.3),	// 7 tape stop
+			(presetName: "geiger", sdgcount: 20, sdglen: 0.8, sdgcurve: 0, sdgfreq: 3000, sdgwalk: 0, sdgcolor: 1, sdgdecay: 0.005, sdgtone: 1, sdgspread: 0.5),	// 8 geiger
+			(presetName: "flam", sdgcount: 2, sdglen: 0.02, sdgcurve: 0, sdgfreq: 1000, sdgwalk: 0, sdgdecay: 0.06, sdgtone: 0.5)	// 9 flam
+		]
+	}
+
+	*graph { |output|
+
+		^{ |out, sustain = 3, pan = 0.5, freq = 261.6256, accelerate = 0,
+			sdgcount = 12, sdglen = 0.5, sdgcurve = 0.8, sdgfreq = 1400, sdgwalk = 7, sdgcolor = 0,
+			sdgdecay = 0.035, sdgtone = 0.3, sdgbits = 0, sdgspread = 0, sdglevel = 0|
+			var tune = freq / 261.6256;	// note 0 is the voice's own pitch
+			var n = sdgcount.clip(1, 32).round;
+			var len = sdglen.clip(0.01, 2);
+			var curve = sdgcurve.clip(-1, 1);
+			var dec = sdgdecay.clip(0.002, 0.5);
+			var tone = sdgtone.clip(0, 1);
+			var bits = sdgbits.clip(0, 1);
+			var nyq = SampleRate.ir * 0.45;
+			// n clicks, n - 1 gaps, each gap r times the one before; last / first = 2 ** (-5 * curve)
+			var gaps = (n - 1).max(1);
+			var r = 2 ** (curve.neg * 5 / (gaps - 1).max(1));
+			var total = Select.kr((r - 1).abs < 1e-6, [(1 - (r ** gaps)) / (1 - r), gaps]);
+			var first = len / total;
+			// a bouncing ball's bounce is as loud as its gap is long: the level follows the gaps
+			var fade = r ** (curve * 0.6);	// < 1 either way: a roll fades whichever way it bends
+			var trig = TDuty.ar(Dgeom(first, r, n), 0, Dgeom(1, fade, n));
+			var step = sdgwalk.clip(-48, 48) / gaps;
+			var semis = Demand.ar(trig, 0, Dseries(0, step, n) + (Dwhite(-12, 12, n) * sdgcolor.clip(0, 1)));
+			var side = Demand.ar(trig, 0, Dseq([-1, 1], inf)) * sdgspread.clip(0, 1);
+			var pitch = (sdgfreq.clip(60, 12000) * tune * semis.midiratio).clip(20, nyq)
+				* Line.kr(1, 1 + accelerate, len + dec);
+			// Ringz reads its pitch once a block: the click waits two blocks so it rings at its own
+			// pitch, and the ring before it glides there, as one stepped analog filter would
+			var hit = DelayN.ar(trig, 0.02, ControlDur.ir * 2);
+			var tick = WhiteNoise.ar * EnvGen.ar(Env.perc(0.0002, 0.0015), hit) * Latch.ar(hit, hit);
+			var env = EnvGen.ar(Env([1, 1, 0], [(len * (n > 1)) + (dec * 1.3) + (ControlDur.ir * 2) + 0.01, 0.005]), doneAction: 2);
+			var sig = Ringz.ar(hit + (tick * tone * 0.12), pitch, dec);
+			sig = sig + (HPF.ar(tick, 2000) * tone * 0.5);
+			// crush: down to 1.4 kHz and 3 bits at 1 (at 44.1 kHz)
+			// Latch only moves on a rising trigger, so its clock stays at or under half the sample
+			// rate; the first tenth of the knob fades the crush in rather than jumping to it
+			sig = SelectX.ar((bits * 10).min(1), [sig,
+				(Latch.ar(sig, Impulse.ar(SampleRate.ir * 0.5 * (2 ** (bits * -4))))
+					* (2 ** (15 - (bits * 13)))).round / (2 ** (15 - (bits * 13)))]);
+			sig = LeakDC.ar(sig).tanh;
+			sig = Pan2.ar(sig, Latch.ar(side, hit));
+			output.(out, sig * sdglevel.clip(-36, 6).dbamp, pan, env);
+		}
+	}
+}
